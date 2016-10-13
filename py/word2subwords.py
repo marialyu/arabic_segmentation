@@ -83,6 +83,28 @@ def compute_dot_area (th, labeled, cnts):
     return dot_area
 
 
+def find_min_max (labeled, axis):
+    num_els = labeled.shape[axis]
+    num_unique_in_els = np.zeros(num_els)
+    min_max = {}
+    for idx in range(num_els):
+        # Find part labels in row/column
+        if axis:
+            unique = set(np.unique(labeled[:, idx]))
+        else:
+            unique = set(np.unique(labeled[idx, :]))
+        unique.discard(-1)
+        # Save number of labels
+        num_unique_in_els[idx] = len(unique)
+        # Update min max info
+        for l in unique:
+            if l not in min_max:
+                min_max[l] = [idx, idx]
+            else:
+                min_max[l][1] = idx
+    return min_max
+
+
 def compute_areas (cnts):
     areas = [cv2.contourArea(cnt) for cnt in cnts]
     return np.array(areas)
@@ -149,6 +171,16 @@ def compute_crossline_scores (labeled, line_y):
     return np.array(scores)
 
 
+def compute_crossline_scores2 (labeled, line_y):
+    min_max_y = find_min_max (labeled, axis=0)
+    scores = []
+    for l, (ymin, ymax) in min_max_y.iteritems():
+        score = min(line_y - ymin, ymax - line_y) / float(ymax - ymin)
+        score = max(0, score)
+        scores.append(score)
+    return np.array(scores)
+
+
 def compute_min_dist2line_scores (cnts, line_y):
     # Get bb for whole word
     stacked_cnt = np.vstack(cnts)
@@ -168,28 +200,6 @@ def compute_min_dist2line_scores (cnts, line_y):
         score = dist / float(h)
         scores.append(score)
     return np.array(scores)
-
-
-def find_min_max (labeled, axis):
-    num_els = labeled.shape[axis]
-    num_unique_in_els = np.zeros(num_els)
-    min_max = {}
-    for idx in range(num_els):
-        # Find part labels in row/column
-        if axis:
-            unique = set(np.unique(labeled[:, idx]))
-        else:
-            unique = set(np.unique(labeled[idx, :]))
-        unique.discard(-1)
-        # Save number of labels
-        num_unique_in_els[idx] = len(unique)
-        # Update min max info
-        for l in unique:
-            if l not in min_max:
-                min_max[l] = [idx, idx]
-            else:
-                min_max[l][1] = idx
-    return min_max
 
 
 def compute_hhole_scores (labeled):
@@ -229,14 +239,15 @@ def compute_h_scores (th, labeled):
     return np.array(scores)
 
 
-def compute_scores (dist_scores, crossline_scores, min_dist_scores,
-                    area_scores, area_scores2, area_scores3, hhole_scores,
-                    h_scores):
+def compute_scores (dist_scores, crossline_scores, crossline_scores2,
+                    min_dist_scores, area_scores, area_scores2, area_scores3,
+                    hhole_scores, h_scores):
     scores = []
     num_cnts = dist_scores.size
     for i in range(num_cnts):
         dist = dist_scores[i] / 2.0
         crossline_ratio = crossline_scores[i]
+        crossline_ratio2 = crossline_scores2[i]
         min_dist = (min_dist_scores[i])
         area_ratio = area_scores[i]
         area_ratio2 = area_scores2[i]
@@ -246,12 +257,12 @@ def compute_scores (dist_scores, crossline_scores, min_dist_scores,
 #        score = (dist + area_ratio) / 2 + crossline_ratio
 #        score = 0.4 * dist + 0.2 * area_ratio + 0.4 * crossline_ratio
 #        score = (dist + area_ratio2 + hhole_score) / 3.0 #thresh = 0.2
-        score = (2 * area_ratio3 + hhole_score + crossline_ratio - min_dist +
-                 2 * h_score) / 4.0
+        score = (2 * area_ratio3 + hhole_score + crossline_ratio2 - min_dist +
+                 2 * h_score) / 4.0  # thresh = 0.15
         scores.append(score)
-        print('%3d: %.2f (crl=%.2f, md=%.2f, a3=%.2f, hh=%.2f, h=%.2f)' %
-              (i, score, crossline_ratio, min_dist, area_ratio3, hhole_score,
-               h_score))
+        print('%3d: %.2f (crl=%.2f, crl2=%.2f, md=%.2f, a3=%.2f, hh=%.2f, h=%.2f)' %
+              (i, score, crossline_ratio, crossline_ratio2, min_dist,
+               area_ratio3, hhole_score, h_score))
 #        print('%3d: %.2f (d=%.2f, crl=%.2f, md=%.2f, a=%.2f, a2=%.2f, a3=%.2f,'
 #              ' hh=%.2f, h=%.2f)' % (i, score, dist, crossline_ratio, min_dist,
 #                                     area_ratio, area_ratio2, area_ratio3,
@@ -293,6 +304,7 @@ def run0 (impath, outpath):
     min_dist_scores = compute_min_dist2line_scores (cnts, word_line_y)
     # Compute cross line score
     crossline_scores = compute_crossline_scores(labeled, word_line_y)
+    crossline_scores2 = compute_crossline_scores2(labeled, word_line_y)
     # Compute area score
     area_scores = compute_area_scores(areas)
     # Find dot
@@ -305,9 +317,9 @@ def run0 (impath, outpath):
     #
     h_scores = compute_h_scores(th, labeled)
     # Compute result score
-    scores = compute_scores(dist_scores, crossline_scores, min_dist_scores,
-                            area_scores, area_scores2, area_scores3,
-                            hhole_scores, h_scores)
+    scores = compute_scores(dist_scores, crossline_scores, crossline_scores2,
+                            min_dist_scores, area_scores, area_scores2,
+                            area_scores3, hhole_scores, h_scores)
 
     # Draw on image
     cv2.line(img, (0, word_line_y), (img.shape[1], word_line_y), (255, 0, 125), 1)
