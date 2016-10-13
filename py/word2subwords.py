@@ -42,6 +42,41 @@ def run ():
                 run0(full_f, outpath)
 
 
+def save_result_img (img, cnts_primary, cnts_secondary, outpath):
+    # Convert to bgr
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    # Draw word line
+#    cv2.line(img, (0, word_line_y), (img.shape[1], word_line_y), (255, 0, 125), 1)
+
+    # Draw contours
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
+              (0, 255, 255), (125, 0, 125), (125, 125, 0), (125, 0, 0),
+              (0, 125, 0), (0, 0, 125)]
+    for cnt in cnts_primary:
+        color = colors[randint(0, len(colors)-1)]
+        cv2.drawContours(img, [cnt], -1, color, -1)
+#    cv2.drawContours(img, cnts_primary, -1, (255, 125, 0), -1)
+    cv2.drawContours(img, cnts_secondary, -1, (0, 125, 255), -1)
+
+    # Resize image
+    sc = 300.0 / img.shape[0]
+    img = cv2.resize(img, None, fx=sc, fy=sc)
+
+    # Draw contour numbers
+#    for i, mc in enumerate(mc_coords):
+#        cv2.putText(img, str(i), (int(mc[0]*sc), int(mc[1]*sc)),
+#                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+
+    if outpath:
+        cv2.imwrite(outpath, img)
+    else:
+        cv2.imshow("Image", img)
+        cv2.waitKey(0)
+
+
+
 def get_word_line_y (mc_coords, areas):
     repmat_areas = np.tile(areas, (2, 1)).T
     common_mc_coord = np.sum(repmat_areas * mc_coords, axis=0) / np.sum(areas)
@@ -260,13 +295,6 @@ def compute_scores (dist_scores, crossline_scores, crossline_scores2,
         score = (2 * area_ratio3 + hhole_score + crossline_ratio2 - min_dist +
                  2 * h_score) / 4.0  # thresh = 0.15
         scores.append(score)
-        print('%3d: %.2f (crl=%.2f, crl2=%.2f, md=%.2f, a3=%.2f, hh=%.2f, h=%.2f)' %
-              (i, score, crossline_ratio, crossline_ratio2, min_dist,
-               area_ratio3, hhole_score, h_score))
-#        print('%3d: %.2f (d=%.2f, crl=%.2f, md=%.2f, a=%.2f, a2=%.2f, a3=%.2f,'
-#              ' hh=%.2f, h=%.2f)' % (i, score, dist, crossline_ratio, min_dist,
-#                                     area_ratio, area_ratio2, area_ratio3,
-#                                     hhole_score, h_score))
     return scores
 
 
@@ -290,7 +318,6 @@ def run0 (impath, outpath):
     labeled = np.ones(th.shape, dtype=float) * -1
     for i in range(num_cnts):
         cv2.drawContours(labeled, cnts, i, i, -1)
-#    labeled[255-th == 0] = -1
 
     # Find coordinates of centers of mass for each part
     areas = compute_areas(cnts)
@@ -321,24 +348,12 @@ def run0 (impath, outpath):
                             min_dist_scores, area_scores, area_scores2,
                             area_scores3, hhole_scores, h_scores)
 
-    # Draw on image
-    cv2.line(img, (0, word_line_y), (img.shape[1], word_line_y), (255, 0, 125), 1)
     thresh = 0.15
     cnts_primary = [cnt for i, cnt in enumerate(cnts) if scores[i] >= thresh]
     cnts_secondary = [cnt for i, cnt in enumerate(cnts) if scores[i] < thresh]
-    cv2.drawContours(img, cnts_primary, -1, (255, 125, 0), -1)
-    cv2.drawContours(img, cnts_secondary, -1, (0, 125, 255), -1)
 
-    sc = 1800.0 / max(img.shape[0], img.shape[1])
-    img = cv2.resize(img, None, fx=sc, fy=sc)
-
-    for i, mc in enumerate(mc_coords):
-        cv2.putText(img, str(i), (int(mc[0]*sc), int(mc[1]*sc)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-
-    cv2.imshow("Image", img)
-    cv2.waitKey(0)
-#    cv2.imwrite(outpath, img)
+    if outpath:
+        save_result_img(th, cnts_primary, cnts_secondary, outpath)
 
 
 if __name__ == '__main__':
