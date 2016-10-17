@@ -38,11 +38,14 @@ def run ():
         if os.path.isfile(full_f) and f.startswith('word'):
             idx = int(re.search('\d+', f).group())
             if idx in idxs:
+                outpath = None
                 outpath = os.path.join(outdir, 'ps_' + f)
                 run0(full_f, outpath)
 
 
-def save_result_img (img, cnts_primary, cnts_secondary, outpath):
+def make_result_img (img, cnts_primary, cnts_secondary, mc_coords=None):
+    one_color = True
+    mc_coords=None
     # Convert to bgr
     if len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
@@ -51,13 +54,16 @@ def save_result_img (img, cnts_primary, cnts_secondary, outpath):
 #    cv2.line(img, (0, word_line_y), (img.shape[1], word_line_y), (255, 0, 125), 1)
 
     # Draw contours
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
+    if one_color:
+        cv2.drawContours(img, cnts_primary, -1, (255, 125, 0), -1)
+
+    else:
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
               (0, 255, 255), (125, 0, 125), (125, 125, 0), (125, 0, 0),
               (0, 125, 0), (0, 0, 125)]
-    for cnt in cnts_primary:
-        color = colors[randint(0, len(colors)-1)]
-        cv2.drawContours(img, [cnt], -1, color, -1)
-#    cv2.drawContours(img, cnts_primary, -1, (255, 125, 0), -1)
+        for cnt in cnts_primary:
+            color = colors[randint(0, len(colors)-1)]
+            cv2.drawContours(img, [cnt], -1, color, -1)
     cv2.drawContours(img, cnts_secondary, -1, (0, 125, 255), -1)
 
     # Resize image
@@ -65,16 +71,11 @@ def save_result_img (img, cnts_primary, cnts_secondary, outpath):
     img = cv2.resize(img, None, fx=sc, fy=sc)
 
     # Draw contour numbers
-#    for i, mc in enumerate(mc_coords):
-#        cv2.putText(img, str(i), (int(mc[0]*sc), int(mc[1]*sc)),
-#                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-
-    if outpath:
-        cv2.imwrite(outpath, img)
-    else:
-        cv2.imshow("Image", img)
-        cv2.waitKey(0)
-
+    if mc_coords is not None:
+        for i, mc in enumerate(mc_coords):
+            cv2.putText(img, str(i), (int(mc[0]*sc), int(mc[1]*sc)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+    return img
 
 
 def get_word_line_y (mc_coords, areas):
@@ -376,8 +377,12 @@ def run0 (impath, outpath):
     cnts_primary = [cnt for i, cnt in enumerate(cnts) if scores[i] >= thresh]
     cnts_secondary = [cnt for i, cnt in enumerate(cnts) if scores[i] < thresh]
 
+    res = make_result_img(th, cnts_primary, cnts_secondary, mc_coords)
     if outpath:
-        save_result_img(th, cnts_primary, cnts_secondary, outpath)
+        cv2.imwrite(outpath, res)
+    else:
+        cv2.imshow("Image", res)
+        cv2.waitKey(0)
 
 
 if __name__ == '__main__':
