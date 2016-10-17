@@ -121,7 +121,8 @@ def compute_dot_area (th, labeled, cnts):
 def find_min_max (labeled, axis):
     num_els = labeled.shape[axis]
     num_unique_in_els = np.zeros(num_els)
-    min_max = {}
+    num_labels = np.max(labeled) + 1
+    min_max = np.ones([num_labels, 2]) * -1
     for idx in range(num_els):
         # Find part labels in row/column
         if axis:
@@ -133,7 +134,7 @@ def find_min_max (labeled, axis):
         num_unique_in_els[idx] = len(unique)
         # Update min max info
         for l in unique:
-            if l not in min_max:
+            if min_max[l][0] == -1:
                 min_max[l] = [idx, idx]
             else:
                 min_max[l][1] = idx
@@ -209,7 +210,7 @@ def compute_crossline_scores (labeled, line_y):
 def compute_crossline_scores2 (labeled, line_y):
     min_max_y = find_min_max (labeled, axis=0)
     scores = []
-    for l, (ymin, ymax) in min_max_y.iteritems():
+    for l, (ymin, ymax) in enumerate(min_max_y):
         score = min(line_y - ymin, ymax - line_y) / float(ymax - ymin)
         score = max(0, score)
         scores.append(score)
@@ -250,8 +251,27 @@ def compute_hhole_scores (labeled):
 
     num_labels = np.max(labeled) + 1
     scores = np.zeros(num_labels, dtype=float)
-    for l, (min_x, max_x) in min_max_x.iteritems():
+    for l, (min_x, max_x) in enumerate(min_max_x):
         scores[l] = np.mean(num_unique_in_cols[min_x:max_x+1] - 1 == 0)
+    return scores
+
+
+def compute_max_hcover_scores (labeled):
+    min_max_x = find_min_max(labeled, axis=1)
+
+    num_labels = int(np.max(labeled) + 1)
+    cover_lens = np.zeros([num_labels]*2)
+    for l1 in range(num_labels):
+        for l2 in range(l1+1, num_labels):
+            s1, e1 = min_max_x[l1]
+            s2, e2 = min_max_x[l2]
+            if s1 > s2:
+                s1, e1, s2, e2 = s2, e2, s1, e1
+            cover_lens[l1, l2] = max(0.0, min(e1, e2) - s2)
+            cover_lens[l2, l1] = cover_lens[l1, l2]
+
+    x_lens = min_max_x[:, 1] - min_max_x[:, 0]
+    scores = 1 - np.max(cover_lens, axis=0) / x_lens.astype(float)
     return scores
 
 
@@ -276,7 +296,7 @@ def compute_h_scores (th, labeled):
 
 def compute_scores (dist_scores, crossline_scores, crossline_scores2,
                     min_dist_scores, area_scores, area_scores2, area_scores3,
-                    hhole_scores, h_scores):
+                    hhole_scores, max_hcover_scores, h_scores):
     scores = []
     num_cnts = dist_scores.size
     for i in range(num_cnts):
@@ -288,6 +308,7 @@ def compute_scores (dist_scores, crossline_scores, crossline_scores2,
         area_ratio2 = area_scores2[i]
         area_ratio3 = area_scores3[i]
         hhole_score = hhole_scores[i]
+        max_hcover = max_hcover_scores[i]
         h_score = h_scores[i] ** 2.0
 #        score = (dist + area_ratio) / 2 + crossline_ratio
 #        score = 0.4 * dist + 0.2 * area_ratio + 0.4 * crossline_ratio
@@ -342,11 +363,14 @@ def run0 (impath, outpath):
     # Find horizontal holes score
     hhole_scores = compute_hhole_scores(labeled)
     #
+    max_hcover_scores = compute_max_hcover_scores(labeled)
+    #
     h_scores = compute_h_scores(th, labeled)
     # Compute result score
     scores = compute_scores(dist_scores, crossline_scores, crossline_scores2,
                             min_dist_scores, area_scores, area_scores2,
-                            area_scores3, hhole_scores, h_scores)
+                            area_scores3, hhole_scores, max_hcover_scores,
+                            h_scores)
 
     thresh = 0.15
     cnts_primary = [cnt for i, cnt in enumerate(cnts) if scores[i] >= thresh]
