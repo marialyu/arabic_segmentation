@@ -285,14 +285,13 @@ def compute_h_scores (th, labeled):
     min_max_y = find_min_max(sk_labeled, axis=0)
     min_max_x = find_min_max(sk_labeled, axis=1)
 
-    scores = []
     num_labels = int(np.max(labeled) + 1)
-    for l in range(num_labels):
-        h = min_max_y[l][1] - min_max_y[l][0]
-        w = min_max_x[l][1] - min_max_x[l][0] + 1.0
-        score = float(h) / w / 8.0
-        scores.append(score)
-    return np.array(scores)
+    scores = np.zeros(num_labels, dtype=float)
+    h = min_max_y[:, 1] - min_max_y[:, 0]
+    w = min_max_x[:, 1] - min_max_x[:, 0] + 1.0
+    scores = (h.astype(float) / w / 8.0) ** 2
+    scores[scores <= 0.1] = 0.0
+    return scores
 
 
 def compute_scores (dist_scores, crossline_scores, crossline_scores2,
@@ -300,6 +299,7 @@ def compute_scores (dist_scores, crossline_scores, crossline_scores2,
                     hhole_scores, max_hcover_scores, h_scores):
     scores = []
     num_cnts = dist_scores.size
+
     for i in range(num_cnts):
         dist = dist_scores[i] / 2.0
         crossline_ratio = crossline_scores[i]
@@ -310,7 +310,7 @@ def compute_scores (dist_scores, crossline_scores, crossline_scores2,
         area_ratio3 = area_scores3[i]
         hhole_score = hhole_scores[i]
         max_hcover = max_hcover_scores[i]
-        h_score = h_scores[i] ** 2.0
+        h_score = h_scores[i]
 #        score = (dist + area_ratio) / 2 + crossline_ratio
 #        score = 0.4 * dist + 0.2 * area_ratio + 0.4 * crossline_ratio
 #        score = (dist + area_ratio2 + hhole_score) / 3.0 #thresh = 0.2
