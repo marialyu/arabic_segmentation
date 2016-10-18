@@ -37,7 +37,7 @@ def find_contours (img_bw):
 
 
 def get_pxl_labels (img_shape, cnts):
-    pxl_labels = np.ones(img_shape, dtype=float) * -1
+    pxl_labels = np.ones(img_shape, dtype=np.int32) * -1
     for i in range(len(cnts)):
         cv2.drawContours(pxl_labels, cnts, i, i, -1)
     return pxl_labels

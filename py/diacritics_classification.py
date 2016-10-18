@@ -56,7 +56,7 @@ def find_min_max (labeled, axis):
     num_els = labeled.shape[axis]
     num_unique_in_els = np.zeros(num_els)
     num_labels = np.max(labeled) + 1
-    min_max = np.ones([num_labels, 2]) * -1
+    min_max = np.ones([num_labels, 2], dtype=int) * -1
     for idx in range(num_els):
         # Find part labels in row/column
         if axis:
@@ -126,7 +126,7 @@ def compute_area_scores3 (dot_area, areas):
 
 
 def compute_crossline_scores (labeled, line_y):
-    num_labels = int(np.max(labeled)) + 1
+    num_labels = np.max(labeled) + 1
     scores = []
     for i in range(num_labels):
         area_above = np.sum(labeled[:line_y, :] == i)
@@ -173,7 +173,7 @@ def compute_min_dist2line_scores (cnts, line_y):
 
 
 def compute_hhole_scores (labeled):
-    min_max_x = find_min_max (labeled, axis=1)
+    min_max_x = find_min_max(labeled, axis=1)
     num_cols = labeled.shape[1]
     num_unique_in_cols = np.zeros(num_cols)
     for col_idx in range(num_cols):
@@ -186,14 +186,14 @@ def compute_hhole_scores (labeled):
     num_labels = np.max(labeled) + 1
     scores = np.zeros(num_labels, dtype=float)
     for l, (min_x, max_x) in enumerate(min_max_x):
-        scores[l] = np.mean(num_unique_in_cols[min_x:max_x+1] - 1 == 0)
+        not_covered = num_unique_in_cols[min_x:max_x+1] - 1 == 0
+        scores[l] = np.mean(not_covered)
     return scores
 
 
 def compute_max_hcover_scores (labeled):
     min_max_x = find_min_max(labeled, axis=1)
-
-    num_labels = int(np.max(labeled) + 1)
+    num_labels = np.max(labeled) + 1
     cover_lens = np.zeros([num_labels]*2)
     for l1 in range(num_labels):
         for l2 in range(l1+1, num_labels):
@@ -218,7 +218,7 @@ def compute_h_scores (th, labeled):
     min_max_y = find_min_max(sk_labeled, axis=0)
     min_max_x = find_min_max(sk_labeled, axis=1)
 
-    num_labels = int(np.max(labeled) + 1)
+    num_labels = np.max(labeled) + 1
     scores = np.zeros(num_labels, dtype=float)
     h = min_max_y[:, 1] - min_max_y[:, 0]
     w = min_max_x[:, 1] - min_max_x[:, 0] + 1.0
