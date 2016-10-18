@@ -49,7 +49,7 @@ def get_subword_cnts (cnts, secondary2primary):
     # Sort subwords by x coordinate of center of mass
     mc_coords = compute_mc_coords(cnts)
     tmp = [(scnts, mc_coords[l][0]) for l, scnts in label2cnts.iteritems()]
-    tmp.sort(key=lambda x: x[1])
+    tmp.sort(key=lambda x: x[1], reverse=True)
     sorted_subword_cnts = [x[0] for x in tmp]
     return sorted_subword_cnts
 
