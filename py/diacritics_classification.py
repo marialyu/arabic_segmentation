@@ -5,7 +5,6 @@ Created on Mon Oct 17 19:32:42 2016
 @author: marialyu
 """
 
-from random import randint
 import numpy as np
 import cv2
 from skimage.morphology import skeletonize
@@ -39,6 +38,12 @@ def find_min_max (labeled, axis):
             else:
                 min_max[l][1] = idx
     return min_max
+
+
+def find_min_max_cnt (cnt, axis):
+    min_c = np.min(cnt[:, :, axis])
+    max_c = np.max(cnt[:, :, axis])
+    return min_c, max_c
 
 
 def compute_areas (cnts):
@@ -196,33 +201,67 @@ def get_scores4primary (img_bw, cnts, pxl_labels):
     return scores
 
 
-def make_diacritics_img (img, cnts, is_primary):
-    # Convert to bgr
-    if len(img.shape) == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+def fix_not_vcovered_secondary (pxl_labels, cnts, scores, is_primary):
+    for l in range(len(cnts)):
+        if is_primary[l]:
+            continue
+        # Find if secondary component is covered vertically by any primary one
+        min_x, max_x = find_min_max_cnt(cnts[l], axis=0)
+        rect = pxl_labels[:, min_x:max_x+1]
+        primary_labels = np.where(is_primary)[0]
+        is_primary_rect = np.in1d(rect, primary_labels).reshape(rect.shape)
+        # If there is no such component -- look for secondary one that
+        # covers vertically current component (including it)
+        # has maximal score
+        # => change it to be primary
+        if not np.any(is_primary_rect):
+            secondary_labels = np.where(np.logical_not(is_primary))[0]
+            sec_labels_rect = np.setdiff1d(rect, secondary_labels)
+            sec_labels_rect = np.setdiff1d(rect, [-1])
+            new_pl = sec_labels_rect[np.argmax(scores[sec_labels_rect])]
+            is_primary[new_pl] = 1
+    return is_primary
 
-    # Draw contours
-    cnts_primary = [cnt for i, cnt in enumerate(cnts) if is_primary[i]]
-    cnts_secondary = [cnt for i, cnt in enumerate(cnts) if not is_primary[i]]
-    if 1:
-        cv2.drawContours(img, cnts_primary, -1, (255, 125, 0), -1)
-    else:
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
-              (0, 255, 255), (125, 0, 125), (125, 125, 0), (125, 0, 0),
-              (0, 125, 0), (0, 0, 125)]
-        for cnt in cnts_primary:
-            color = colors[randint(0, len(colors)-1)]
-            cv2.drawContours(img, [cnt], -1, color, -1)
-    cv2.drawContours(img, cnts_secondary, -1, (0, 125, 255), -1)
 
-    # Resize image
-    sc = 300.0 / img.shape[0]
-    img = cv2.resize(img, None, fx=sc, fy=sc)
+def classify_diacritics (img_bw, cnts, pxl_labels, thresh):
+    scores = get_scores4primary(img_bw, cnts, pxl_labels)
+    is_primary = scores >= thresh
+    is_primary = fix_not_vcovered_secondary(pxl_labels, cnts, scores,
+                                            is_primary)
+    return is_primary
 
-    # Draw contour numbers
-    if 1:
-        mc_coords = compute_mc_coords(cnts)
-        for i, mc in enumerate(mc_coords):
-            cv2.putText(img, str(i), (int(mc[0]*sc), int(mc[1]*sc)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-    return img
+
+def find_closest_primary (search_rect, primary_labels, search_coords):
+    # Find closest column with primary parts
+    is_primary = np.in1d(search_rect, primary_labels).reshape(search_rect.shape)
+    primary_cover_mask = np.any(is_primary, axis=0)
+    if not np.any(primary_cover_mask):
+        return
+    primary_cover_x = np.where(primary_cover_mask)[0]
+    diff = abs(primary_cover_x - search_coords[0])
+    col_idx = primary_cover_x[np.argmin(diff)]
+    column = search_rect[:, col_idx]
+    # Find closest primary in column
+    col_primary_mask = np.in1d(column, primary_labels)
+    col_primary_y = np.where(col_primary_mask)[0]
+    y_diff = abs(col_primary_y - search_coords[1])
+    closest_primary_y = col_primary_y[np.argmin(y_diff)]
+    closest_primary_label = column[closest_primary_y]
+    return closest_primary_label
+
+
+def bound_diacritics (pxl_labels, cnts, is_primary):
+    primary_labels = np.where(is_primary)[0]
+    secondary_labels = np.where(np.logical_not(is_primary))[0]
+    mc_coords = compute_mc_coords(cnts)
+    min_max_x = find_min_max(pxl_labels, axis=1)
+
+    new_labels = {}
+    for sl in secondary_labels:
+        min_x, max_x = min_max_x[sl]
+        rect = pxl_labels[:, min_x:max_x+1]
+        mc = mc_coords[sl]
+        search_coords = [mc[0]-min_x, mc[1]]
+        new_sl = find_closest_primary(rect, primary_labels, search_coords)
+        new_labels[sl] = new_sl
+    return new_labels
