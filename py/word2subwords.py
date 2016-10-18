@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 10 12:17:32 2016
-
-@author: marialyu
-"""
 
 from random import randint
-import os
 import re
 import numpy as np
 import cv2
@@ -118,8 +112,6 @@ def string2subwords (img):
 
 def run ():
     impath = 'path/to/image'
-    impath = '/home/marialyu/dev/arabic_segmentation/data/word1.jpg'
-
     # Read image
     img = cv2.imread(impath)
     # Get contours of each subword
@@ -129,49 +121,12 @@ def run ():
         subwords = extract_subword_imgs(img.shape, subword_cnts)
         for subword in subwords:
             cv2.imshow('subword', subword)
-            cv2.waitKey(0)
+            cv2.waitKey(300)
     # Draw all on one image
     if 1:
         color_subwords_img = draw_subwords(img, subword_cnts)
         cv2.imshow('Subwords segmentation', color_subwords_img)
         cv2.waitKey(0)
-
-
-
-def my_run ():
-    imdir = '/home/marialyu/dev/arabic_segmentation/data/'
-    outdir = '/home/marialyu/dev/arabic_segmentation/results/'
-    idxs = range(1, 7) + range(10, 18) + range(18, 24) + [27, 28]
-    # Get image names
-    imnames = []
-    for f in os.listdir(imdir):
-        full_f = os.path.join(imdir, f)
-        if os.path.isfile(full_f) and f.startswith('word'):
-            idx = int(re.search('\d+', f).group())
-            if idx in idxs:
-                imnames.append(f)
-    imnames.sort(key=natural_sort_key)
-
-    # Divide string in subwords
-    for imname in imnames:
-        # Read image
-        impath = os.path.join(imdir, imname)
-        img = cv2.imread(impath)
-        # Get contours of each subword
-        subword_cnts = string2subwords(img)
-        # Get list of subword images
-        if 0:
-            subwords = extract_subword_imgs(img.shape, subword_cnts)
-            for subword in subwords:
-                cv2.imshow('subword', subword)
-                cv2.waitKey(50)
-        # Draw all on one image
-        if 1:
-            color_subwords_img = draw_subwords(img, subword_cnts)
-#            cv2.imshow('Subwords segmentation', color_subwords_img)
-#            cv2.waitKey(0)
-            outpath = os.path.join(outdir, imname)
-            cv2.imwrite(outpath, color_subwords_img)
 
 
 if __name__ == '__main__':
