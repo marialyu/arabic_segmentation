@@ -113,12 +113,8 @@ def draw_subwords_vertically (img_shape, subword_cnts):
     return res
 
 
-def draw_subwords (img, subword_cnts):
-    # Convert to bgr
-    img = binarize_image(img)
-    if len(img.shape) == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
+def draw_subwords (img_shape, subword_cnts):
+    img = np.ones(img_shape, dtype=np.uint8) * 255
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
               (0, 255, 255), (125, 0, 125), (125, 125, 0), (125, 0, 0),
               (0, 125, 0), (0, 0, 125)]
@@ -169,7 +165,7 @@ def run ():
     subword_cnts = string2subwords(img, delete_diacritics=True)
     # Draw all on one image
     if 1:
-        color_subwords_img = draw_subwords(img, subword_cnts)
+        color_subwords_img = draw_subwords(img.shape, subword_cnts)
         cv2.imshow('Subwords segmentation', color_subwords_img)
         cv2.waitKey(0)
     # Get vertical list of subwords
