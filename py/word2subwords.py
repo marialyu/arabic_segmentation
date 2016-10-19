@@ -139,7 +139,7 @@ def string2subwords (img):
     # Make labeled img
     pxl_labels = get_pxl_labels(img_bw.shape, cnts)
     # Classify to primary and secondary components
-    thresh = 0.15
+    thresh = 0.2
     is_primary = classify_diacritics(img_bw, cnts, pxl_labels, thresh)
     # Bound secondary components to primary
     secondary2primary = bound_diacritics(pxl_labels, cnts, is_primary)
@@ -165,6 +165,12 @@ def run ():
         vsubwords = draw_subwords_vertically (img.shape, subword_cnts)
         cv2.imshow('vsubwords', vsubwords)
         cv2.waitKey(0)
+    # Get list of subword images
+    if 0:
+        subwords = extract_subword_imgs(img.shape, subword_cnts)
+        for subword in subwords:
+            cv2.imshow('subword', subword)
+            cv2.waitKey(300)
 
 
 if __name__ == '__main__':
