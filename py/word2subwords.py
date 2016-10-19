@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from random import randint
 import re
 import numpy as np
 import cv2
 from diacritics_classification import classify_diacritics, bound_diacritics, \
     compute_mc_coords
+from viz import draw_subwords, draw_subwords_vertically, extract_subword_imgs
 
 
 def natural_sort_key (x):
@@ -46,53 +46,20 @@ def get_subword_cnts (cnts, secondary2primary):
     label2cnts = {l: [cnts[l]] for l in primary_labels}
     for sl, pl in secondary2primary.iteritems():
         label2cnts[pl].append(cnts[sl])
-    # Sort subwords by x coordinate of center of mass
-    mc_coords = compute_mc_coords(cnts)
-    tmp = [(scnts, mc_coords[l][0]) for l, scnts in label2cnts.iteritems()]
+    subword_cnts = label2cnts.values()
+    return subword_cnts
+
+
+def sort_subwords (subword_cnts):
+    subword_primary_cnts = [scnts[0] for scnts in subword_cnts]
+    mc_coords = compute_mc_coords(subword_primary_cnts)
+    num_subwords = len(subword_cnts)
+    tmp = [(subword_cnts[i], mc_coords[i][0]) for i in range(num_subwords)]
     tmp.sort(key=lambda x: x[1], reverse=True)
     sorted_subword_cnts = [x[0] for x in tmp]
     return sorted_subword_cnts
 
-
-def extract_subword_imgs (img_shape, subword_cnts):
-    res = []
-    for cnts in subword_cnts:
-        img = np.ones(img_shape, dtype=np.uint8) * 255
-        cv2.drawContours(img, cnts, -1, 0, -1)
-        res.append(img)
-#        min_x = min([np.min(cnt[:, :, 0]) for cnt in cnts])
-#        max_x = max([np.max(cnt[:, :, 0]) for cnt in cnts])
-#        min_y = min([np.min(cnt[:, :, 1]) for cnt in cnts])
-#        max_y = max([np.max(cnt[:, :, 1]) for cnt in cnts])
-#        res.append(img[min_y:max_y+1, min_x:max_x+1])
-    return res
-
-
-def draw_subwords (img, subword_cnts):
-    # Convert to bgr
-    img = binarize_image(img)
-    if len(img.shape) == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255),
-              (0, 255, 255), (125, 0, 125), (125, 125, 0), (125, 0, 0),
-              (0, 125, 0), (0, 0, 125)]
-    # Draw contours
-    prev_color = -1
-    for cnts in subword_cnts:
-        while 1:
-            color = colors[randint(0, len(colors)-1)]
-            if color != prev_color:
-                prev_color = color
-                break
-        cv2.drawContours(img, cnts, -1, color, -1)
-    # Resize image
-    sc = min(300.0 / img.shape[0], 1500.0 / img.shape[1])
-    img = cv2.resize(img, None, fx=sc, fy=sc)
-    return img
-
-
-def string2subwords (img):
+def string2subwords (img, delete_diacritics=False):
     # Get binary image
     img_bw = binarize_image(img)
     # Find contours
@@ -102,20 +69,27 @@ def string2subwords (img):
     # Classify to primary and secondary components
     thresh = 0.15
     is_primary = classify_diacritics(img_bw, cnts, pxl_labels, thresh)
-    # Bound secondary components to primary
-    secondary2primary = bound_diacritics(pxl_labels, cnts, is_primary)
+
+    if delete_diacritics:
+        cnts = [cnt for i, cnt in enumerate(cnts) if is_primary[i]]
+        secondary2primary = {}
+    else:
+        # Bound secondary components to primary
+        secondary2primary = bound_diacritics(pxl_labels, cnts, is_primary)
     # Get list of contours for each subword
     # subwords are sorted through x coord
     subword_cnts = get_subword_cnts(cnts, secondary2primary)
+    subword_cnts = sort_subwords(subword_cnts)
     return subword_cnts
 
+# =============================================================================
 
 def run ():
     impath = 'path/to/image'
     # Read image
     img = cv2.imread(impath)
     # Get contours of each subword
-    subword_cnts = string2subwords(img)
+    subword_cnts = string2subwords(img, delete_diacritics=False)
     # Get list of subword images
     if 1:
         subwords = extract_subword_imgs(img.shape, subword_cnts)
@@ -124,9 +98,13 @@ def run ():
             cv2.waitKey(300)
     # Draw all on one image
     if 1:
-        color_subwords_img = draw_subwords(img, subword_cnts)
+        color_subwords_img = draw_subwords(img.shape, subword_cnts)
         cv2.imshow('Subwords segmentation', color_subwords_img)
-        cv2.waitKey(0)
+    # Get vertical list of subwords
+    if 1:
+        vsubwords = draw_subwords_vertically(img.shape, subword_cnts)
+        cv2.imshow('vsubwords', vsubwords)
+    cv2.waitKey(0)
 
 
 if __name__ == '__main__':

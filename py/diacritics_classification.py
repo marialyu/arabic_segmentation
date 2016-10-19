@@ -84,6 +84,7 @@ def compute_area_scores (dot_area, areas):
     max_area = min(np.max(areas), 20.0 * dot_area)
     scores = np.array([area / float(max_area) for area in areas])
     scores[areas <= dot_area] = 0.0
+    scores[scores > 1.0] = 1.0
     return scores
 
 
@@ -92,7 +93,7 @@ def compute_crossline_scores (labeled, line_y):
     scores = []
     for l, (ymin, ymax) in enumerate(min_max_y):
         score = min(line_y - ymin, ymax - line_y) / float(ymax - ymin)
-        score = max(0, score)
+        score = max(0, score) * 2
         scores.append(score)
     return np.array(scores)
 
@@ -118,7 +119,7 @@ def compute_min_dist2line_scores (cnts, line_y):
     return np.array(scores)
 
 
-def compute_hhole_scores (labeled):
+def compute_hcover_scores (labeled):
     min_max_x = find_min_max(labeled, axis=1)
     num_cols = labeled.shape[1]
     num_unique_in_cols = np.zeros(num_cols)
@@ -137,7 +138,7 @@ def compute_hhole_scores (labeled):
     return scores
 
 
-def compute_h_scores (th, labeled):
+def compute_vline_scores (th, labeled):
 
     sk = skeletonize(np.logical_not(th))
     sk_labeled = np.ones_like(labeled) * -1
@@ -152,11 +153,12 @@ def compute_h_scores (th, labeled):
     w = min_max_x[:, 1] - min_max_x[:, 0] + 1.0
     scores = (h.astype(float) / w / 8.0) ** 2
     scores[scores <= 0.1] = 0.0
+    scores[scores > 1.0] = 1.0
     return scores
 
 
 def compute_scores (crossline_scores, min_dist_scores, area_scores,
-                    hhole_scores, h_scores):
+                    hcover_scores, vline_scores):
     scores = []
     num_cnts = min_dist_scores.size
 
@@ -164,11 +166,11 @@ def compute_scores (crossline_scores, min_dist_scores, area_scores,
         crossline_ratio = crossline_scores[i]
         min_dist = min_dist_scores[i]
         area_ratio = area_scores[i]
-        hhole_score = hhole_scores[i]
-        h_score = h_scores[i]
+        hcover_score = hcover_scores[i]
+        vline_score = vline_scores[i]
 
-        score = (2 * area_ratio + hhole_score + crossline_ratio - min_dist +
-                 2 * h_score) / 4.0  # thresh = 0.15
+        score = (2 * area_ratio + hcover_score + 0.5 * crossline_ratio - \
+                 min_dist + vline_score) / 4.0  # thresh = 0.15
         scores.append(score)
     return np.array(scores)
 
@@ -187,12 +189,12 @@ def get_scores4primary (img_bw, cnts, pxl_labels):
     dot_area = compute_dot_area(img_bw, pxl_labels, cnts)
     area_scores = compute_area_scores(dot_area, areas)
     # Find horizontal holes score
-    hhole_scores = compute_hhole_scores(pxl_labels)
-    #
-    h_scores = compute_h_scores(img_bw, pxl_labels)
+    hcover_scores = compute_hcover_scores(pxl_labels)
+    # How much component looks like vertical line
+    vline_scores = compute_vline_scores(img_bw, pxl_labels)
     # Compute result score
     scores = compute_scores(crossline_scores, min_dist_scores, area_scores,
-                            hhole_scores, h_scores)
+                            hcover_scores, vline_scores)
     return scores
 
 
