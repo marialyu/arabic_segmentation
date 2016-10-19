@@ -46,9 +46,15 @@ def get_subword_cnts (cnts, secondary2primary):
     label2cnts = {l: [cnts[l]] for l in primary_labels}
     for sl, pl in secondary2primary.iteritems():
         label2cnts[pl].append(cnts[sl])
-    # Sort subwords by x coordinate of center of mass
-    mc_coords = compute_mc_coords(cnts)
-    tmp = [(scnts, mc_coords[l][0]) for l, scnts in label2cnts.iteritems()]
+    subword_cnts = label2cnts.values()
+    return subword_cnts
+
+
+def sort_subwords (subword_cnts):
+    subword_primary_cnts = [scnts[0] for scnts in subword_cnts]
+    mc_coords = compute_mc_coords(subword_primary_cnts)
+    num_subwords = len(subword_cnts)
+    tmp = [(subword_cnts[i], mc_coords[i][0]) for i in range(num_subwords)]
     tmp.sort(key=lambda x: x[1], reverse=True)
     sorted_subword_cnts = [x[0] for x in tmp]
     return sorted_subword_cnts
@@ -131,7 +137,7 @@ def draw_subwords (img, subword_cnts):
     return img
 
 
-def string2subwords (img):
+def string2subwords (img, delete_diacritics=False):
     # Get binary image
     img_bw = binarize_image(img)
     # Find contours
@@ -141,11 +147,17 @@ def string2subwords (img):
     # Classify to primary and secondary components
     thresh = 0.2
     is_primary = classify_diacritics(img_bw, cnts, pxl_labels, thresh)
-    # Bound secondary components to primary
-    secondary2primary = bound_diacritics(pxl_labels, cnts, is_primary)
+
+    if delete_diacritics:
+        cnts = [cnt for i, cnt in enumerate(cnts) if is_primary[i]]
+        secondary2primary = {}
+    else:
+        # Bound secondary components to primary
+        secondary2primary = bound_diacritics(pxl_labels, cnts, is_primary)
     # Get list of contours for each subword
     # subwords are sorted through x coord
     subword_cnts = get_subword_cnts(cnts, secondary2primary)
+    subword_cnts = sort_subwords(subword_cnts)
     return subword_cnts
 
 
@@ -154,7 +166,7 @@ def run ():
     # Read image
     img = cv2.imread(impath)
     # Get contours of each subword
-    subword_cnts = string2subwords(img)
+    subword_cnts = string2subwords(img, delete_diacritics=True)
     # Draw all on one image
     if 1:
         color_subwords_img = draw_subwords(img, subword_cnts)
