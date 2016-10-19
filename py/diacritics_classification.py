@@ -170,7 +170,7 @@ def compute_scores (crossline_scores, min_dist_scores, area_scores,
         h_score = h_scores[i]
 
         score = (2 * area_ratio + hhole_score + 0.5 * crossline_ratio - \
-                 min_dist + h_score) / 3.5  # thresh = 0.2
+                 min_dist + h_score) / 4.0  # thresh = 0.15
         scores.append(score)
     return np.array(scores)
 
