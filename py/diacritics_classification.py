@@ -84,6 +84,7 @@ def compute_area_scores (dot_area, areas):
     max_area = min(np.max(areas), 20.0 * dot_area)
     scores = np.array([area / float(max_area) for area in areas])
     scores[areas <= dot_area] = 0.0
+    scores[scores > 1.0] = 1.0
     return scores
 
 
@@ -92,7 +93,7 @@ def compute_crossline_scores (labeled, line_y):
     scores = []
     for l, (ymin, ymax) in enumerate(min_max_y):
         score = min(line_y - ymin, ymax - line_y) / float(ymax - ymin)
-        score = max(0, score)
+        score = max(0, score) * 2
         scores.append(score)
     return np.array(scores)
 
@@ -152,6 +153,7 @@ def compute_h_scores (th, labeled):
     w = min_max_x[:, 1] - min_max_x[:, 0] + 1.0
     scores = (h.astype(float) / w / 8.0) ** 2
     scores[scores <= 0.1] = 0.0
+    scores[scores > 1.0] = 1.0
     return scores
 
 
@@ -167,8 +169,8 @@ def compute_scores (crossline_scores, min_dist_scores, area_scores,
         hhole_score = hhole_scores[i]
         h_score = h_scores[i]
 
-        score = (2 * area_ratio + hhole_score + crossline_ratio - min_dist +
-                 2 * h_score) / 4.0  # thresh = 0.15
+        score = (2 * area_ratio + hhole_score + 0.5 * crossline_ratio - \
+                 min_dist + h_score) / 3.5  # thresh = 0.2
         scores.append(score)
     return np.array(scores)
 
