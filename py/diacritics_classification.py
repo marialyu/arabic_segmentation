@@ -138,7 +138,7 @@ def compute_hcover_scores (labeled):
     return scores
 
 
-def compute_h_scores (th, labeled):
+def compute_vline_scores (th, labeled):
 
     sk = skeletonize(np.logical_not(th))
     sk_labeled = np.ones_like(labeled) * -1
@@ -158,7 +158,7 @@ def compute_h_scores (th, labeled):
 
 
 def compute_scores (crossline_scores, min_dist_scores, area_scores,
-                    hcover_scores, h_scores):
+                    hcover_scores, vline_scores):
     scores = []
     num_cnts = min_dist_scores.size
 
@@ -167,10 +167,10 @@ def compute_scores (crossline_scores, min_dist_scores, area_scores,
         min_dist = min_dist_scores[i]
         area_ratio = area_scores[i]
         hcover_score = hcover_scores[i]
-        h_score = h_scores[i]
+        vline_score = vline_scores[i]
 
         score = (2 * area_ratio + hcover_score + 0.5 * crossline_ratio - \
-                 min_dist + h_score) / 4.0  # thresh = 0.15
+                 min_dist + vline_score) / 4.0  # thresh = 0.15
         scores.append(score)
     return np.array(scores)
 
@@ -190,11 +190,11 @@ def get_scores4primary (img_bw, cnts, pxl_labels):
     area_scores = compute_area_scores(dot_area, areas)
     # Find horizontal holes score
     hcover_scores = compute_hcover_scores(pxl_labels)
-    #
-    h_scores = compute_h_scores(img_bw, pxl_labels)
+    # How much component looks like vertical line
+    vline_scores = compute_vline_scores(img_bw, pxl_labels)
     # Compute result score
     scores = compute_scores(crossline_scores, min_dist_scores, area_scores,
-                            hcover_scores, h_scores)
+                            hcover_scores, vline_scores)
     return scores
 
 
