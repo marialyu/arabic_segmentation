@@ -68,6 +68,45 @@ def extract_subword_imgs (img_shape, subword_cnts):
     return res
 
 
+def draw_subwords_vertically (img_shape, subword_cnts):
+    # Compute width of result image
+    num_subwords = len(subword_cnts)
+    min_xs = [min([np.min(c[:, :, 0]) for c in cnts]) for cnts in subword_cnts]
+    max_xs = [max([np.max(c[:, :, 0]) for c in cnts]) for cnts in subword_cnts]
+    res_w = max([max_xs[i] - min_xs[i] + 1 for i in range(num_subwords)])
+    # Lines
+    line0 = np.ones((1, res_w, 3), dtype=np.uint8) * 255
+    line1 = np.zeros((2, res_w, 3), dtype=np.uint8)
+    line1[:, :, 2] = 255
+    # Crop subwords
+    croped_subwords = []
+    for i, cnts in enumerate(subword_cnts):
+        min_x = min_xs[i]
+        max_x = max_xs[i]
+        min_y = min([np.min(cnt[:, :, 1]) for cnt in cnts])
+        max_y = max([np.max(cnt[:, :, 1]) for cnt in cnts])
+        h = max_y - min_y + 1
+        w = max_x - min_x + 1
+        # Shift contours
+        x_shift = (res_w - w) / 2
+        cnts_shifted = []
+        for cnt in cnts:
+            cnt_shifted = cnt.copy()
+            cnt_shifted[:, :, 0] +=  x_shift - min_x
+            cnt_shifted[:, :, 1] -=  min_y
+            cnts_shifted.append(cnt_shifted)
+        # Draw on crop
+        crop = np.ones((h, res_w, 3), dtype=np.uint8) * 255
+        cv2.drawContours(crop, cnts_shifted, -1, 0, -1)
+        croped_subwords.append(crop)
+        # Add line
+        if i < num_subwords - 1:
+            croped_subwords += [line0, line1, line0]
+    # Stack subwords vertically
+    res = np.vstack(croped_subwords)
+    return res
+
+
 def draw_subwords (img, subword_cnts):
     # Convert to bgr
     img = binarize_image(img)
@@ -116,16 +155,15 @@ def run ():
     img = cv2.imread(impath)
     # Get contours of each subword
     subword_cnts = string2subwords(img)
-    # Get list of subword images
-    if 1:
-        subwords = extract_subword_imgs(img.shape, subword_cnts)
-        for subword in subwords:
-            cv2.imshow('subword', subword)
-            cv2.waitKey(300)
     # Draw all on one image
     if 1:
         color_subwords_img = draw_subwords(img, subword_cnts)
         cv2.imshow('Subwords segmentation', color_subwords_img)
+        cv2.waitKey(0)
+    # Get vertical list of subwords
+    if 1:
+        vsubwords = draw_subwords_vertically (img.shape, subword_cnts)
+        cv2.imshow('vsubwords', vsubwords)
         cv2.waitKey(0)
 
 
