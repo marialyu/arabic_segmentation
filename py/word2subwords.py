@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import re
 import numpy as np
 import cv2
@@ -84,8 +85,7 @@ def string2subwords (img, delete_diacritics=False):
 
 # =============================================================================
 
-def run ():
-    impath = 'path/to/image'
+def run (impath):
     # Read image
     img = cv2.imread(impath)
     # Get contours of each subword
@@ -108,4 +108,9 @@ def run ():
 
 
 if __name__ == '__main__':
-    run()
+    args = sys.argv[1:]
+    if len(args) == 1:
+        run(args[0])
+    else:
+        print 'Wrong number of arguments.' + '\n' + \
+              'Usage: python word2subwords.py path2image'
